@@ -270,7 +270,7 @@ function DashAdapter() {
         const periodId = selectedVoPeriod.id;
         const adaptationsForType = dashManifestModel.getAdaptationsForType(manifest, streamInfo.index, type !== Constants.EMBEDDED_TEXT ? type : Constants.VIDEO);
 
-        if (!adaptationsForType) return mediaArr;
+        if (!adaptationsForType || adaptationsForType.length === 0) return mediaArr;
 
         voAdaptations[periodId] = voAdaptations[periodId] || dashManifestModel.getAdaptationsForPeriod(selectedVoPeriod);
 

@@ -125,8 +125,8 @@ function TextSourceBuffer() {
             if (isFragmented) {
                 fragmentedFragmentModel = streamProcessor.getFragmentModel();
                 instance.buffered = CustomTimeRanges(context).create();
-                fragmentedTracks = mediaController.getTracksFor(Constants.FRAGMENTED_TEXT, streamController.getActiveStreamInfo());
-                const currFragTrack = mediaController.getCurrentTrackFor(Constants.FRAGMENTED_TEXT, streamController.getActiveStreamInfo());
+                fragmentedTracks = mediaController.getTracksFor(Constants.FRAGMENTED_TEXT, streamProcessor.getStreamInfo());
+                const currFragTrack = mediaController.getCurrentTrackFor(Constants.FRAGMENTED_TEXT, streamProcessor.getStreamInfo());
                 for (let i = 0; i < fragmentedTracks.length; i++) {
                     if (fragmentedTracks[i] === currFragTrack) {
                         setCurrentFragmentedTrackIdx(i);
@@ -143,11 +143,9 @@ function TextSourceBuffer() {
 
     function abort() {
         textTracks.deleteAllTextTracks();
+        resetFragmented();
         boxParser = null;
         mediaInfos = [];
-        fragmentedFragmentModel = null;
-        initializationSegmentReceived = false;
-        fragmentedTracks = [];
     }
 
     function reset() {
@@ -323,10 +321,13 @@ function TextSourceBuffer() {
         }
 
         if (mediaType === Constants.FRAGMENTED_TEXT) {
-            if (!initializationSegmentReceived) {
+            if (!initializationSegmentReceived && chunk.segmentType === 'InitializationSegment') {
                 initializationSegmentReceived = true;
                 timescale = boxParser.getMediaTimescaleFromMoov(bytes);
             } else {
+                if (!initializationSegmentReceived) {
+                    return;
+                }
                 samplesInfo = boxParser.getSamplesInfo(bytes);
                 sampleList = samplesInfo.sampleList;
                 if (firstFragmentedSubtitleStart === null && sampleList.length > 0) {
