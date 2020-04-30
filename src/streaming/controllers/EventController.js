@@ -80,6 +80,11 @@ function EventController() {
     }
 
     function stop() {
+        // dispatch any lingering events
+        if (Object.keys(inlineEvents).length > 0 || Object.keys(inbandEvents).length > 0) {
+            onEventTimer();
+        }
+
         if (eventInterval !== null && isStarted) {
             clearInterval(eventInterval);
             eventInterval = null;
@@ -216,7 +221,9 @@ function EventController() {
 
                 if (curr !== undefined) {
                     presentationTime = curr.presentationTime / curr.eventStream.timescale;
-                    if (presentationTime === 0 || (presentationTime <= currentVideoTime && presentationTime + presentationTimeThreshold > currentVideoTime)) {
+                    const period = curr.eventStream.period;
+                    const start = (period && typeof period.start === 'number') ? period.start : presentationTimeThreshold;
+                    if (presentationTime === 0 || presentationTime + start <= currentVideoTime) {
                         logger.debug('Start Event ' + eventId + ' at ' + currentVideoTime);
                         if (curr.duration > 0) {
                             activeEvents[eventId] = curr;
