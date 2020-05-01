@@ -185,6 +185,10 @@ function EventController() {
      * Iterate through the eventList and trigger/remove the events
      */
     function onEventTimer() {
+        if (playbackController.isSeeking()) {
+            return;
+        }
+
         var currentVideoTime = playbackController.getTime();
         var presentationTimeThreshold = (currentVideoTime - lastEventTimerCall);
         lastEventTimerCall = currentVideoTime;
