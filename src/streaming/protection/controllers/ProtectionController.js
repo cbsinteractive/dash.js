@@ -29,7 +29,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-import CommonEncryption from '../CommonEncryption.js';
 import MediaCapability from '../vo/MediaCapability.js';
 import KeySystemConfiguration from '../vo/KeySystemConfiguration.js';
 import ProtectionErrors from '../errors/ProtectionErrors.js';
@@ -41,6 +40,10 @@ import Utils from '../../../core/Utils.js';
 import Constants from '../../constants/Constants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
+
+import { getPSSHData } from '@svta/common-media-library/drm/common-encryption/getPSSHData.js';
+import { getPSSHForKeySystem } from '@svta/common-media-library/drm/common-encryption/getPSSHForKeySystem.js';
+import { getLicenseServerUrlFromContentProtection } from '@svta/common-media-library/drm/common-encryption/getLicenseServerUrlFromContentProtection.js';
 
 const NEEDKEY_BEFORE_INITIALIZE_RETRIES = 5;
 const NEEDKEY_BEFORE_INITIALIZE_TIMEOUT = 500;
@@ -384,7 +387,9 @@ function ProtectionController(config) {
             return;
         }
 
-        const initDataForKS = CommonEncryption.getPSSHForKeySystem(selectedKeySystem, keySystemMetadata ? keySystemMetadata.initData : null);
+        const initDataForKS = getPSSHForKeySystem(selectedKeySystem, keySystemMetadata ? keySystemMetadata.initData : null);
+        console.log('XXX - initDataForKS from createKeySession: ', initDataForKS);
+
         if (initDataForKS) {
 
             // Check for duplicate initData
@@ -966,11 +971,22 @@ function ProtectionController(config) {
         // No url provided by the app. Check the manifest and the pssh
         else {
             // Check for url defined in the manifest
-            url = CommonEncryption.getLicenseServerUrlFromMediaInfo(mediaInfoArr, selectedKeySystem.schemeIdURI);
+            if (Array.isArray(mediaInfoArr) && mediaInfoArr.length > 0) {
+                for (const mediaInfo of mediaInfoArr) {
+                    const contentProtection = mediaInfo.contentProtection;
+                
+                    if (Array.isArray(contentProtection)) {
+                        url = getLicenseServerUrlFromContentProtection(contentProtection, selectedKeySystem.schemeIdURI);
+                        if (url) {
+                            break; 
+                        }
+                    }
+                }
+            }
 
             // In case we are not using Clearky we can still get a url from the pssh.
             if (!url && !protectionKeyController.isClearKey(selectedKeySystem)) {
-                const psshData = CommonEncryption.getPSSHData(sessionToken.initData);
+                const psshData = getPSSHData(sessionToken.initData);
                 url = selectedKeySystem.getLicenseServerURLFromInitData(psshData);
 
                 // Still no url, check the keymessage
@@ -1082,7 +1098,8 @@ function ProtectionController(config) {
 
             // If key system has already been selected and initData already seen, then do nothing
             if (selectedKeySystem) {
-                const initDataForKS = CommonEncryption.getPSSHForKeySystem(selectedKeySystem, abInitData);
+                const initDataForKS = getPSSHForKeySystem(selectedKeySystem, abInitData);
+                console.log('XXX - initDataForKS from _onNeedKey: ', initDataForKS);
                 if (initDataForKS) {
                     // Check for duplicate initData
                     if (_isInitDataDuplicate(initDataForKS)) {
