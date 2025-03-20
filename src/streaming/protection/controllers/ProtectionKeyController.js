@@ -28,7 +28,6 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import CommonEncryption from './../CommonEncryption.js';
 import KeySystemClearKey from './../drm/KeySystemClearKey.js';
 import KeySystemW3CClearKey from './../drm/KeySystemW3CClearKey.js';
 import KeySystemWidevine from './../drm/KeySystemWidevine.js';
@@ -40,6 +39,9 @@ import ClearKey from './../servers/ClearKey.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import KeySystemMetadata from '../vo/KeySystemMetadata.js';
+
+import { findCencContentProtection } from '@svta/common-media-library/drm/common-encryption/findCencContentProtection.js';
+import { parsePSSHList } from '@svta/common-media-library/drm/common-encryption/parsePSSHList.js';
 
 /**
  * @module ProtectionKeyController
@@ -216,7 +218,7 @@ function ProtectionKeyController() {
             return supportedKS
         }
 
-        const mp4ProtectionElement = CommonEncryption.findMp4ProtectionElement(contentProtectionElements);
+        const mp4ProtectionElement = findCencContentProtection(contentProtectionElements);
         for (ksIdx = 0; ksIdx < keySystems.length; ksIdx++) {
             keySystem = keySystems[ksIdx];
 
@@ -268,7 +270,9 @@ function ProtectionKeyController() {
      */
     function getSupportedKeySystemsFromSegmentPssh(initData, protDataSet, sessionType) {
         let supportedKS = [];
-        let pssh = CommonEncryption.parsePSSHList(initData);
+        console.log('XXX - getSupportedKeySystemsFromSegmentPssh', initData);
+        let pssh = parsePSSHList(initData);
+        console.log('XXX - pssh', pssh);
         let ks, keySystemString;
 
         for (let ksIdx = 0; ksIdx < keySystems.length; ++ksIdx) {
