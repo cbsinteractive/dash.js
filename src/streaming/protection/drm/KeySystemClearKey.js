@@ -31,13 +31,14 @@
 
 import KeyPair from '../vo/KeyPair.js';
 import ClearKeyKeySet from '../vo/ClearKeyKeySet.js';
-import CommonEncryption from '../CommonEncryption.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 
 const uuid = ProtectionConstants.CLEARKEY_UUID;
 const systemString = ProtectionConstants.CLEARKEY_KEYSTEM_STRING;
 const schemeIdURI = 'urn:uuid:' + uuid;
+
+import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
 
 function KeySystemClearKey(config) {
 
@@ -78,7 +79,7 @@ function KeySystemClearKey(config) {
 
     function getInitData(cp, cencContentProtection) {
         try {
-            let initData = CommonEncryption.parseInitDataFromContentProtection(cp, BASE64);
+            let initData = parseInitDataFromContentProtection(cp, BASE64);
 
             if (!initData && cencContentProtection) {
                 const cencDefaultKid = cencDefaultKidToBase64Representation(cencContentProtection.cencDefaultKid);
