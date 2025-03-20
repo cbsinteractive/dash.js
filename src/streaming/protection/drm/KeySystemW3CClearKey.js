@@ -31,9 +31,9 @@
 
 import KeyPair from '../vo/KeyPair.js';
 import ClearKeyKeySet from '../vo/ClearKeyKeySet.js';
-import CommonEncryption from '../CommonEncryption.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
+import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
 
 const uuid = ProtectionConstants.W3C_CLEARKEY_UUID;
 const systemString = ProtectionConstants.CLEARKEY_KEYSTEM_STRING;
@@ -77,7 +77,7 @@ function KeySystemW3CClearKey(config) {
     }
 
     function getInitData(cp) {
-        return CommonEncryption.parseInitDataFromContentProtection(cp, BASE64);
+        return parseInitDataFromContentProtection(cp, BASE64);
     }
 
     function getRequestHeadersFromMessage(/*message*/) {
