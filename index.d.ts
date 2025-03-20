@@ -4636,10 +4636,6 @@ declare namespace dashjs {
         VIDEO_ELEMENT_SELECTED: 'videoElementSelected';
     }
 
-    export interface CommonEncryption {
-        // Does not export anything
-    }
-
     export interface Protection {
         createProtectionSystem(config: object): void;
     }
