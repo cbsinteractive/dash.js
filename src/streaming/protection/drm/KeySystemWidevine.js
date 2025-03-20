@@ -36,9 +36,9 @@
  * @implements MediaPlayer.dependencies.protection.KeySystem
  */
 
-import CommonEncryption from '../CommonEncryption.js';
 import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
+import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
 
 const uuid = ProtectionConstants.WIDEVINE_UUID;
 const systemString = ProtectionConstants.WIDEVINE_KEYSTEM_STRING;
@@ -51,7 +51,7 @@ function KeySystemWidevine(config) {
     const BASE64 = config.BASE64;
 
     function getInitData(cp) {
-        return CommonEncryption.parseInitDataFromContentProtection(cp, BASE64);
+        return parseInitDataFromContentProtection(cp, BASE64);
     }
 
     function getRequestHeadersFromMessage( /*message*/ ) {
