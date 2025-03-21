@@ -36,12 +36,16 @@ import DRMToday from './../servers/DRMToday.js';
 import PlayReady from './../servers/PlayReady.js';
 import Widevine from './../servers/Widevine.js';
 import ClearKey from './../servers/ClearKey.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import KeySystemMetadata from '../vo/KeySystemMetadata.js';
 
+// imports from common-media-library
 import { findCencContentProtection } from '@svta/common-media-library/drm/common-encryption/findCencContentProtection.js';
 import { parsePSSHList } from '@svta/common-media-library/drm/common-encryption/parsePSSHList.js';
+import { MEDIA_KEY_MESSAGE_TYPES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_MESSAGE_TYPES.js';
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';
+import { PLAYREADY_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_KEY_SYSTEM.js';
+import { CLEAR_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/CLEAR_KEY_SYSTEM.js';   
 
 /**
  * @module ProtectionKeyController
@@ -317,18 +321,18 @@ function ProtectionKeyController() {
 
         // Our default server implementations do not do anything with "license-release" or
         // "individualization-request" messages, so we just send a success event
-        if (messageType === ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.LICENSE_RELEASE || messageType === ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.INDIVIDUALIZATION_REQUEST) {
+        if (messageType === MEDIA_KEY_MESSAGE_TYPES.LICENSE_RELEASE || messageType === MEDIA_KEY_MESSAGE_TYPES.INDIVIDUALIZATION_REQUEST) {
             return null;
         }
 
         let licenseServerData = null;
         if (protData && protData.hasOwnProperty('drmtoday')) {
             licenseServerData = DRMToday(context).getInstance({BASE64: BASE64});
-        } else if (keySystem.systemString === ProtectionConstants.WIDEVINE_KEYSTEM_STRING) {
+        } else if (keySystem.systemString === WIDEVINE_KEY_SYSTEM) {
             licenseServerData = Widevine(context).getInstance();
-        } else if (keySystem.systemString === ProtectionConstants.PLAYREADY_KEYSTEM_STRING) {
+        } else if (keySystem.systemString === PLAYREADY_KEY_SYSTEM) {
             licenseServerData = PlayReady(context).getInstance();
-        } else if (keySystem.systemString === ProtectionConstants.CLEARKEY_KEYSTEM_STRING) {
+        } else if (keySystem.systemString === CLEAR_KEY_SYSTEM) {
             licenseServerData = ClearKey(context).getInstance();
         }
 
