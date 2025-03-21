@@ -39,11 +39,14 @@ import {HTTPRequest} from '../../vo/metrics/HTTPRequest.js';
 import Utils from '../../../core/Utils.js';
 import Constants from '../../constants/Constants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
 
 import { getPSSHData } from '@svta/common-media-library/drm/common-encryption/getPSSHData.js';
 import { getPSSHForKeySystem } from '@svta/common-media-library/drm/common-encryption/getPSSHForKeySystem.js';
 import { getLicenseServerUrlFromContentProtection } from '@svta/common-media-library/drm/common-encryption/getLicenseServerUrlFromContentProtection.js';
+import { MEDIA_KEY_MESSAGE_TYPES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_MESSAGE_TYPES.js';
+import { INITIALIZATION_DATA_TYPE } from '@svta/common-media-library/drm/common/const/INITIALIZATION_DATA_TYPE.js';
+import { PLAYREADY_UUID } from '@svta/common-media-library/drm/common/const/PLAYREADY_UUID.js';
+import { MEDIA_KEY_STATUSES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_STATUSES.js';
 
 const NEEDKEY_BEFORE_INITIALIZE_RETRIES = 5;
 const NEEDKEY_BEFORE_INITIALIZE_TIMEOUT = 500;
@@ -306,7 +309,7 @@ function ProtectionController(config) {
         const protData = keySystemData.protData;
         const audioCapabilities = [];
         const videoCapabilities = [];
-        const initDataTypes = (protData && protData.initDataTypes && protData.initDataTypes.length > 0) ? protData.initDataTypes : [ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC];
+        const initDataTypes = (protData && protData.initDataTypes && protData.initDataTypes.length > 0) ? protData.initDataTypes : [INITIALIZATION_DATA_TYPE.CENC];
         const audioRobustness = (protData && protData.audioRobustness && protData.audioRobustness.length > 0) ? protData.audioRobustness : robustnessLevel;
         const videoRobustness = (protData && protData.videoRobustness && protData.videoRobustness.length > 0) ? protData.videoRobustness : robustnessLevel;
         const ksSessionType = keySystemData.sessionType;
@@ -681,7 +684,7 @@ function ProtectionController(config) {
         // Dispatch event to applications indicating we received a key message
         const keyMessage = e.data;
         eventBus.trigger(events.KEY_MESSAGE, { data: keyMessage });
-        const messageType = (keyMessage.messageType) ? keyMessage.messageType : ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
+        const messageType = (keyMessage.messageType) ? keyMessage.messageType : MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
         const message = keyMessage.message;
         const sessionToken = keyMessage.sessionToken;
         const protData = _getProtDataForKeySystem(selectedKeySystem);
@@ -735,7 +738,7 @@ function ProtectionController(config) {
      */
     function _issueLicenseRequest(keyMessage, licenseServerData, protData) {
         const sessionToken = keyMessage.sessionToken;
-        const messageType = (keyMessage.messageType) ? keyMessage.messageType : ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
+        const messageType = (keyMessage.messageType) ? keyMessage.messageType : MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
         const eventData = { sessionToken: sessionToken, messageType: messageType };
         const keySystemString = selectedKeySystem ? selectedKeySystem.systemString : null;
 
@@ -1073,7 +1076,7 @@ function ProtectionController(config) {
             logger.debug('DRM: onNeedKey');
 
             // Ignore non-cenc initData
-            if (event.key.initDataType !== ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC) {
+            if (event.key.initDataType !== INITIALIZATION_DATA_TYPE.CENC) {
                 logger.warn('DRM:  Only \'cenc\' initData is supported!  Ignoring initData of type: ' + event.key.initDataType);
                 return;
             }
@@ -1150,7 +1153,7 @@ function ProtectionController(config) {
             const isEdgeBrowser = ua && ua.browser && ua.browser.name && ua.browser.name.toLowerCase() === 'edge';
             parsedKeyStatuses.forEach((keyStatus) => {
                 if (isEdgeBrowser
-                    && selectedKeySystem.uuid === ProtectionConstants.PLAYREADY_UUID
+                    && selectedKeySystem.uuid === PLAYREADY_UUID
                     && keyStatus.keyId && keyStatus.keyId.byteLength === 16) {
                     _handlePlayreadyKeyId(keyStatus.keyId);
                 }
@@ -1185,7 +1188,7 @@ function ProtectionController(config) {
 
             return [...normalizedKeyIds].some((normalizedKeyId) => {
                 const keyStatus = keyStatusMap.get(normalizedKeyId);
-                return keyStatus && keyStatus !== ProtectionConstants.MEDIA_KEY_STATUSES.INTERNAL_ERROR && keyStatus !== ProtectionConstants.MEDIA_KEY_STATUSES.OUTPUT_RESTRICTED;
+                return keyStatus && keyStatus !== MEDIA_KEY_STATUSES.INTERNAL_ERROR && keyStatus !== MEDIA_KEY_STATUSES.OUTPUT_RESTRICTED;
             });
         } catch (error) {
             logger.error(error);
@@ -1201,7 +1204,7 @@ function ProtectionController(config) {
 
             return [...normalizedKeyIds].every((normalizedKeyId) => {
                 const keyStatus = keyStatusMap.get(normalizedKeyId);
-                return keyStatus === ProtectionConstants.MEDIA_KEY_STATUSES.EXPIRED;
+                return keyStatus === MEDIA_KEY_STATUSES.EXPIRED;
             })
         } catch (error) {
             logger.error(error);
