@@ -28,7 +28,9 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+
+// imports from common-media-library
+import { MEDIA_KEY_MESSAGE_TYPES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_MESSAGE_TYPES.js';
 
 /**
  * @classdesc Event indicating the receipt of a response from a license server
@@ -49,7 +51,7 @@ class LicenseRequestComplete {
     constructor(message, sessionToken, messageType) {
         this.message = message;
         this.sessionToken = sessionToken;
-        this.messageType = messageType ? messageType : ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
+        this.messageType = messageType ? messageType : MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
     }
 }
 
