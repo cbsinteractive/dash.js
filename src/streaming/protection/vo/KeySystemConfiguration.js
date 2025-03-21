@@ -29,7 +29,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+import { INITIALIZATION_DATA_TYPE } from '@svta/common-media-library/drm/common/const/INITIALIZATION_DATA_TYPE.js';
 
 /**
  * @classdesc Represents a set of configurations that describe the capabilities desired for
@@ -53,7 +53,7 @@ class KeySystemConfiguration {
      * @class
      */
     constructor(audioCapabilities, videoCapabilities, distinctiveIdentifier, persistentState, sessionTypes, initDataTypes) {
-        this.initDataTypes = initDataTypes && initDataTypes.length > 0 ? initDataTypes : [ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC];
+        this.initDataTypes = initDataTypes && initDataTypes.length > 0 ? initDataTypes : [INITIALIZATION_DATA_TYPE.CENC];
         if (audioCapabilities && audioCapabilities.length) {
             this.audioCapabilities = audioCapabilities;
         }
