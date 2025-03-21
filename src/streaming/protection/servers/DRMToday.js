@@ -36,8 +36,11 @@
  * @class
  */
 
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
+
+// imports from common-media-library
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';
+import { PLAYREADY_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_KEY_SYSTEM.js';
 
 function DRMToday(config) {
 
@@ -45,7 +48,7 @@ function DRMToday(config) {
     const BASE64 = config.BASE64;
 
     const keySystems = {};
-    keySystems[ProtectionConstants.WIDEVINE_KEYSTEM_STRING] = {
+    keySystems[WIDEVINE_KEY_SYSTEM] = {
         responseType: 'json',
         getLicenseMessage: function (response) {
             return BASE64.decodeArray(response.license);
@@ -54,7 +57,7 @@ function DRMToday(config) {
             return response;
         }
     };
-    keySystems[ProtectionConstants.PLAYREADY_KEYSTEM_STRING] = {
+    keySystems[PLAYREADY_KEY_SYSTEM] = {
         responseType: 'arraybuffer',
         getLicenseMessage: function (response) {
             return response;
