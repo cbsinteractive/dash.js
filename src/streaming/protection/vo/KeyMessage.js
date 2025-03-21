@@ -28,7 +28,7 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+import { MEDIA_KEY_MESSAGE_TYPES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_MESSAGE_TYPES.js';
 
 /**
  * @classdesc EME-independent KeyMessage
@@ -48,7 +48,7 @@ class KeyMessage {
         this.sessionToken = sessionToken;
         this.message = message;
         this.defaultURL = defaultURL;
-        this.messageType = messageType ? messageType : ProtectionConstants.MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
+        this.messageType = messageType ? messageType : MEDIA_KEY_MESSAGE_TYPES.LICENSE_REQUEST;
     }
 }
 
