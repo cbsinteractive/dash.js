@@ -43,10 +43,11 @@ import NeedKey from '../vo/NeedKey.js';
 import DashJSError from '../../vo/DashJSError.js';
 import ProtectionErrors from '../errors/ProtectionErrors.js';
 import KeyMessage from '../vo/KeyMessage.js';
-import KeySystemConfiguration from '../vo/KeySystemConfiguration.js';
-import KeySystemAccess from '../vo/KeySystemAccess.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+
+// imports from common-media-library
+import { getCompatibleKeySystemAccess } from '@svta/common-media-library/drm/key-system/getCompatibleKeySystemAccess.js';
+import { INITIALIZATION_DATA_TYPE } from '@svta/common-media-library/drm/common/const/INITIALIZATION_DATA_TYPE.js';
 
 function ProtectionModel_3Feb2014(config) {
 
@@ -105,67 +106,81 @@ function ProtectionModel_3Feb2014(config) {
     }
 
     function requestKeySystemAccess(ksConfigurations) {
-        return new Promise((resolve, reject) => {
-            // Try key systems in order, first one with supported key system configuration
-            // is used
-            let found = false;
-            for (let ksIdx = 0; ksIdx < ksConfigurations.length; ksIdx++) {
-                const systemString = ksConfigurations[ksIdx].ks.systemString;
-                const configs = ksConfigurations[ksIdx].configs;
-                let supportedAudio = null;
-                let supportedVideo = null;
-
-                // Try key system configs in order, first one with supported audio/video
-                // is used
-                for (let configIdx = 0; configIdx < configs.length; configIdx++) {
-                    const audios = configs[configIdx].audioCapabilities;
-                    const videos = configs[configIdx].videoCapabilities;
-
-                    // Look for supported audio container/codecs
-                    if (audios && audios.length !== 0) {
-                        supportedAudio = []; // Indicates that we have a requested audio config
-                        for (let audioIdx = 0; audioIdx < audios.length; audioIdx++) {
-                            if (window[api.MediaKeys].isTypeSupported(systemString, audios[audioIdx].contentType)) {
-                                supportedAudio.push(audios[audioIdx]);
-                            }
-                        }
-                    }
-
-                    // Look for supported video container/codecs
-                    if (videos && videos.length !== 0) {
-                        supportedVideo = []; // Indicates that we have a requested video config
-                        for (let videoIdx = 0; videoIdx < videos.length; videoIdx++) {
-                            if (window[api.MediaKeys].isTypeSupported(systemString, videos[videoIdx].contentType)) {
-                                supportedVideo.push(videos[videoIdx]);
-                            }
-                        }
-                    }
-
-                    // No supported audio or video in this configuration OR we have
-                    // requested audio or video configuration that is not supported
-                    if ((!supportedAudio && !supportedVideo) ||
-                        (supportedAudio && supportedAudio.length === 0) ||
-                        (supportedVideo && supportedVideo.length === 0)) {
-                        continue;
-                    }
-
-                    // This configuration is supported
-                    found = true;
-                    const ksConfig = new KeySystemConfiguration(supportedAudio, supportedVideo);
-                    const ks = protectionKeyController.getKeySystemBySystemString(systemString);
-                    const keySystemAccess = new KeySystemAccess(ks, ksConfig);
-                    eventBus.trigger(events.KEY_SYSTEM_ACCESS_COMPLETE, { data: keySystemAccess });
-                    resolve({ data: keySystemAccess });
-                    break;
-                }
-            }
-            if (!found) {
+        return getCompatibleKeySystemAccess(ksConfigurations).then((keySystemAccess) => {
+            if (keySystemAccess) {
+                eventBus.trigger(events.KEY_SYSTEM_ACCESS_COMPLETE, { data: keySystemAccess });
+                return { data: keySystemAccess };
+            } 
+            else {
                 const errorMessage = 'Key system access denied! -- No valid audio/video content configurations detected!';
                 eventBus.trigger(events.KEY_SYSTEM_ACCESS_COMPLETE, { error: errorMessage });
-                reject({ error: errorMessage });
+                throw { error: errorMessage };
             }
-        })
+        });
     }
+
+    // function requestKeySystemAccess(ksConfigurations) {
+    //     return new Promise((resolve, reject) => {
+    //         // Try key systems in order, first one with supported key system configuration
+    //         // is used
+    //         let found = false;
+    //         for (let ksIdx = 0; ksIdx < ksConfigurations.length; ksIdx++) {
+    //             const systemString = ksConfigurations[ksIdx].ks.systemString;
+    //             const configs = ksConfigurations[ksIdx].configs;
+    //             let supportedAudio = null;
+    //             let supportedVideo = null;
+
+    //             // Try key system configs in order, first one with supported audio/video
+    //             // is used
+    //             for (let configIdx = 0; configIdx < configs.length; configIdx++) {
+    //                 const audios = configs[configIdx].audioCapabilities;
+    //                 const videos = configs[configIdx].videoCapabilities;
+
+    //                 // Look for supported audio container/codecs
+    //                 if (audios && audios.length !== 0) {
+    //                     supportedAudio = []; // Indicates that we have a requested audio config
+    //                     for (let audioIdx = 0; audioIdx < audios.length; audioIdx++) {
+    //                         if (window[api.MediaKeys].isTypeSupported(systemString, audios[audioIdx].contentType)) {
+    //                             supportedAudio.push(audios[audioIdx]);
+    //                         }
+    //                     }
+    //                 }
+
+    //                 // Look for supported video container/codecs
+    //                 if (videos && videos.length !== 0) {
+    //                     supportedVideo = []; // Indicates that we have a requested video config
+    //                     for (let videoIdx = 0; videoIdx < videos.length; videoIdx++) {
+    //                         if (window[api.MediaKeys].isTypeSupported(systemString, videos[videoIdx].contentType)) {
+    //                             supportedVideo.push(videos[videoIdx]);
+    //                         }
+    //                     }
+    //                 }
+
+    //                 // No supported audio or video in this configuration OR we have
+    //                 // requested audio or video configuration that is not supported
+    //                 if ((!supportedAudio && !supportedVideo) ||
+    //                     (supportedAudio && supportedAudio.length === 0) ||
+    //                     (supportedVideo && supportedVideo.length === 0)) {
+    //                     continue;
+    //                 }
+
+    //                 // This configuration is supported
+    //                 found = true;
+    //                 const ksConfig = new KeySystemConfiguration(supportedAudio, supportedVideo);
+    //                 const ks = protectionKeyController.getKeySystemBySystemString(systemString);
+    //                 const keySystemAccess = new KeySystemAccess(ks, ksConfig);
+    //                 eventBus.trigger(events.KEY_SYSTEM_ACCESS_COMPLETE, { data: keySystemAccess });
+    //                 resolve({ data: keySystemAccess });
+    //                 break;
+    //             }
+    //         }
+    //         if (!found) {
+    //             const errorMessage = 'Key system access denied! -- No valid audio/video content configurations detected!';
+    //             eventBus.trigger(events.KEY_SYSTEM_ACCESS_COMPLETE, { error: errorMessage });
+    //             reject({ error: errorMessage });
+    //         }
+    //     })
+    // }
 
     function selectKeySystem(ksAccess) {
         return new Promise((resolve, reject) => {
@@ -301,7 +316,7 @@ function ProtectionModel_3Feb2014(config) {
                     case api.needkey:
                         if (event.initData) {
                             const initData = ArrayBuffer.isView(event.initData) ? event.initData.buffer : event.initData;
-                            eventBus.trigger(events.NEED_KEY, { key: new NeedKey(initData, ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC) });
+                            eventBus.trigger(events.NEED_KEY, { key: new NeedKey(initData, INITIALIZATION_DATA_TYPE.CENC) });
                         }
                         break;
                 }
