@@ -36,12 +36,15 @@
  * @implements MediaPlayer.dependencies.protection.KeySystem
  */
 
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
 
-const uuid = ProtectionConstants.WIDEVINE_UUID;
-const systemString = ProtectionConstants.WIDEVINE_KEYSTEM_STRING;
+// imports from common-media-library
+import { WIDEVINE_UUID } from '@svta/common-media-library/drm/common/const/WIDEVINE_UUID.js';
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';
+
+const uuid = WIDEVINE_UUID;
+const systemString = WIDEVINE_KEY_SYSTEM;
 const schemeIdURI = 'urn:uuid:' + uuid;
 
 function KeySystemWidevine(config) {
