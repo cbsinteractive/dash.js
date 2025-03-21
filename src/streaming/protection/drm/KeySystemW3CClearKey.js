@@ -31,12 +31,15 @@
 
 import KeyPair from '../vo/KeyPair.js';
 import ClearKeyKeySet from '../vo/ClearKeyKeySet.js';
-import CommonEncryption from '../CommonEncryption.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
+import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
 
-const uuid = ProtectionConstants.W3C_CLEARKEY_UUID;
-const systemString = ProtectionConstants.CLEARKEY_KEYSTEM_STRING;
+// imports from common-media-library
+import { CLEAR_KEY_UUID } from '@svta/common-media-library/drm/common/const/CLEAR_KEY_UUID.js';
+import { CLEAR_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/CLEAR_KEY_SYSTEM.js';
+
+const uuid = CLEAR_KEY_UUID;
+const systemString = CLEAR_KEY_SYSTEM;
 const schemeIdURI = 'urn:uuid:' + uuid;
 
 function KeySystemW3CClearKey(config) {
@@ -77,7 +80,7 @@ function KeySystemW3CClearKey(config) {
     }
 
     function getInitData(cp) {
-        return CommonEncryption.parseInitDataFromContentProtection(cp, BASE64);
+        return parseInitDataFromContentProtection(cp, BASE64);
     }
 
     function getRequestHeadersFromMessage(/*message*/) {

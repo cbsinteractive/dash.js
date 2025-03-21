@@ -35,12 +35,14 @@
  * @class
  * @implements KeySystem
  */
-import CommonEncryption from '../CommonEncryption.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
-import FactoryMaker from '../../../core/FactoryMaker.js';
 
-const uuid = ProtectionConstants.PLAYREADY_UUID;
-const systemString = ProtectionConstants.PLAYREADY_KEYSTEM_STRING;
+import FactoryMaker from '../../../core/FactoryMaker.js';
+import { parseInitDataFromContentProtection } from '@svta/common-media-library/drm/common-encryption/parseInitDataFromContentProtection.js';
+import { PLAYREADY_UUID } from '@svta/common-media-library/drm/common/const/PLAYREADY_UUID.js';
+import { PLAYREADY_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_KEY_SYSTEM.js';
+
+const uuid = PLAYREADY_UUID;
+const systemString = PLAYREADY_KEY_SYSTEM;
 const schemeIdURI = 'urn:uuid:' + uuid;
 const PRCDMData = '<PlayReadyCDMData type="LicenseAcquisition"><LicenseAcquisition version="1.0" Proactive="false"><CustomData encoding="base64encoded">%CUSTOMDATA%</CustomData></LicenseAcquisition></PlayReadyCDMData>';
 
@@ -199,7 +201,7 @@ function KeySystemPlayReady(config) {
         }
         // Handle common encryption PSSH
         if ('pssh' in cpData && cpData.pssh) {
-            return CommonEncryption.parseInitDataFromContentProtection(cpData, BASE64);
+            return parseInitDataFromContentProtection(cpData, BASE64);
         }
         // Handle native MS PlayReady ContentProtection elements
         if ('pro' in cpData && cpData.pro) {

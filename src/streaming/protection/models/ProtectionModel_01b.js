@@ -45,7 +45,9 @@ import KeySystemConfiguration from '../vo/KeySystemConfiguration.js';
 import KeySystemAccess from '../vo/KeySystemAccess.js';
 import ProtectionErrors from '../errors/ProtectionErrors.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+
+// imports from common-media-library
+import { INITIALIZATION_DATA_TYPE } from '@svta/common-media-library/drm/common/const/INITIALIZATION_DATA_TYPE.js';
 
 function ProtectionModel_01b(config) {
 
@@ -311,7 +313,7 @@ function ProtectionModel_01b(config) {
                 switch (event.type) {
                     case api.needkey:
                         let initData = ArrayBuffer.isView(event.initData) ? event.initData.buffer : event.initData;
-                        eventBus.trigger(events.NEED_KEY, { key: new NeedKey(initData, ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC) });
+                        eventBus.trigger(events.NEED_KEY, { key: new NeedKey(initData, INITIALIZATION_DATA_TYPE.CENC) });
                         break;
 
                     case api.keyerror:

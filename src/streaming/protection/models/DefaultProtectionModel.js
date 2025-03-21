@@ -41,15 +41,22 @@ import ProtectionKeyController from '../controllers/ProtectionKeyController.js';
 import NeedKey from '../vo/NeedKey.js';
 import ProtectionErrors from '../errors/ProtectionErrors.js';
 import DashJSError from '../../vo/DashJSError.js';
-import KeyMessage from '../vo/KeyMessage.js';
 import KeySystemAccess from '../vo/KeySystemAccess.js';
-import ProtectionConstants from '../../constants/ProtectionConstants.js';
+import KeyMessage from '../vo/KeyMessage.js';
 import FactoryMaker from '../../../core/FactoryMaker.js';
 
+// imports from common-media-library
+import { PLAYREADY_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_KEY_SYSTEM.js';
+import { PLAYREADY_RECOMMENDATION_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_RECOMMENDATION_KEY_SYSTEM.js';
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';
+import { CLEAR_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/CLEAR_KEY_SYSTEM.js';
+import { INITIALIZATION_DATA_TYPE } from '@svta/common-media-library/drm/common/const/INITIALIZATION_DATA_TYPE.js';
+import { MEDIA_KEY_STATUSES } from '@svta/common-media-library/drm/common/const/MEDIA_KEY_STATUSES.js';
+
 const SYSTEM_STRING_PRIORITY = {};
-SYSTEM_STRING_PRIORITY[ProtectionConstants.PLAYREADY_KEYSTEM_STRING] = [ProtectionConstants.PLAYREADY_KEYSTEM_STRING, ProtectionConstants.PLAYREADY_RECOMMENDATION_KEYSTEM_STRING];
-SYSTEM_STRING_PRIORITY[ProtectionConstants.WIDEVINE_KEYSTEM_STRING] = [ProtectionConstants.WIDEVINE_KEYSTEM_STRING];
-SYSTEM_STRING_PRIORITY[ProtectionConstants.CLEARKEY_KEYSTEM_STRING] = [ProtectionConstants.CLEARKEY_KEYSTEM_STRING];
+SYSTEM_STRING_PRIORITY[PLAYREADY_KEY_SYSTEM] = [PLAYREADY_KEY_SYSTEM, PLAYREADY_RECOMMENDATION_KEY_SYSTEM];
+SYSTEM_STRING_PRIORITY[WIDEVINE_KEY_SYSTEM] = [WIDEVINE_KEY_SYSTEM];
+SYSTEM_STRING_PRIORITY[CLEAR_KEY_SYSTEM] = [CLEAR_KEY_SYSTEM];
 
 function DefaultProtectionModel(config) {
 
@@ -310,7 +317,7 @@ function DefaultProtectionModel(config) {
         const sessionToken = _createSessionToken(mediaKeySession, keySystemMetadata);
 
         // The "keyids" type is used for Clearkey when keys are provided directly in the protection data and a request to a license server is not needed
-        const dataType = keySystem.systemString === ProtectionConstants.CLEARKEY_KEYSTEM_STRING && (keySystemMetadata.initData || (keySystemMetadata.protData && keySystemMetadata.protData.clearkeys)) ? ProtectionConstants.INITIALIZATION_DATA_TYPE_KEYIDS : ProtectionConstants.INITIALIZATION_DATA_TYPE_CENC;
+        const dataType = keySystem.systemString === CLEAR_KEY_SYSTEM && (keySystemMetadata.initData || (keySystemMetadata.protData && keySystemMetadata.protData.clearkeys)) ? INITIALIZATION_DATA_TYPE.KEYIDS : INITIALIZATION_DATA_TYPE.CENC;
 
         mediaKeySession.generateRequest(dataType, keySystemMetadata.initData)
             .then(function () {
@@ -520,7 +527,7 @@ function DefaultProtectionModel(config) {
                 let usable = false;
                 session.keyStatuses.forEach(function () {
                     let keyStatus = _parseKeyStatus(arguments);
-                    if (keyStatus.status === ProtectionConstants.MEDIA_KEY_STATUSES.USABLE) {
+                    if (keyStatus.status === MEDIA_KEY_STATUSES.USABLE) {
                         usable = true;
                     }
                 });

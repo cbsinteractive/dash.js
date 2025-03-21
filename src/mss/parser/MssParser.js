@@ -37,7 +37,12 @@
 
 import BigInt from '../../../externals/BigInteger.js';
 import FactoryMaker from '../../core/FactoryMaker.js';
-import ProtectionConstants from '../../streaming/constants/ProtectionConstants.js';
+
+// imports from common-media-library
+import { PLAYREADY_UUID } from '@svta/common-media-library/drm/common/const/PLAYREADY_UUID.js';
+import { WIDEVINE_UUID } from '@svta/common-media-library/drm/common/const/WIDEVINE_UUID.js';
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';
+import { PLAYREADY_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/PLAYREADY_KEY_SYSTEM.js';
 
 function MssParser(config) {
     config = config || {};
@@ -532,16 +537,16 @@ function MssParser(config) {
             __prefix: 'mspr'
         };
         return {
-            schemeIdUri: 'urn:uuid:' + ProtectionConstants.PLAYREADY_UUID,
-            value: ProtectionConstants.PLAYREADY_KEYSTEM_STRING,
+            schemeIdUri: 'urn:uuid:' + PLAYREADY_UUID,
+            value: PLAYREADY_KEY_SYSTEM,
             pro: pro
         };
     }
 
     function createWidevineContentProtection(KID) {
         let widevineCP = {
-            schemeIdUri: 'urn:uuid:' + ProtectionConstants.WIDEVINE_UUID,
-            value: ProtectionConstants.WIDEVINE_KEYSTEM_STRING
+            schemeIdUri: 'urn:uuid:' + WIDEVINE_UUID,
+            value: WIDEVINE_KEY_SYSTEM
         };
         if (!KID) {
             return widevineCP;

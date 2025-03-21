@@ -30,9 +30,12 @@
  */
 import FactoryMaker from '../../core/FactoryMaker.js';
 import Constants from '../constants/Constants.js';
-import ProtectionConstants from '../constants/ProtectionConstants.js';
 import ObjectUtils from './ObjectUtils.js';
 import Debug from '../../core/Debug.js';
+
+// imports from common-media-library
+import { SW_SECURE_CRYPTO } from '@svta/common-media-library/drm/common/const/SW_SECURE_CRYPTO.js';
+import { WIDEVINE_KEY_SYSTEM } from '@svta/common-media-library/drm/common/const/WIDEVINE_KEY_SYSTEM.js';   
 
 export function supportsMediaSource() {
     let hasManagedMediaSource = ('ManagedMediaSource' in window)
@@ -292,8 +295,8 @@ function Capabilities() {
                 }
 
                 let robustnessLevel = ''
-                if (keySystemMetadata.ks.systemString === ProtectionConstants.WIDEVINE_KEYSTEM_STRING) {
-                    robustnessLevel = ProtectionConstants.ROBUSTNESS_STRINGS.WIDEVINE.SW_SECURE_CRYPTO;
+                if (keySystemMetadata.ks.systemString === WIDEVINE_KEY_SYSTEM) {
+                    robustnessLevel = SW_SECURE_CRYPTO;
                 }
                 const protData = keySystemMetadata.protData
                 const audioRobustness = (protData && protData.audioRobustness && protData.audioRobustness.length > 0) ? protData.audioRobustness : robustnessLevel;
