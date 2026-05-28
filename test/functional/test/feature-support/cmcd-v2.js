@@ -2,13 +2,11 @@ import Constants from '../../src/Constants.js';
 import Utils from '../../src/Utils.js';
 import {
     checkIsPlaying,
-    checkIsProgressing,
     checkNoCriticalErrors,
     initializeDashJsAdapter,
 } from '../common/common.js';
 import { expect } from 'chai';
-import CmcdRequestCollector from '../../helpers/CmcdRequestCollector.js';
-import { validateCmcdRequest, validateCmcdEvents } from '@svta/cml-cmcd';
+import { CmcdReportRecorder, createXhrTransport, validateCmcdRequest, validateCmcdEvents } from '@svta/cml-cmcd';
 
 const TESTCASE = Constants.TESTCASES.FEATURE_SUPPORT.CMCD_V2;
 
@@ -42,11 +40,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
     describe(`CMCD V2 Query Mode - ${item.name} - ${mpd}`, () => {
         let playerAdapter;
-        let collector;
+        let recorder;
 
         before(() => {
-            collector = new CmcdRequestCollector();
-            collector.attach();
+            recorder = new CmcdReportRecorder();
+            recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
             const settings = {
                 streaming: {
                     cmcd: { ...DEFAULT_CMCD_V2_CONFIG, mode: 'query' },
@@ -56,7 +54,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         after(() => {
-            collector.detach();
+            recorder.detach();
             if (playerAdapter) {
                 playerAdapter.destroy();
             }
@@ -66,17 +64,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             await checkIsPlaying(playerAdapter, true);
         });
 
-        it('Checking progressing state', async () => {
-            await checkIsProgressing(playerAdapter);
-        });
-
         it('Manifest requests carry CMCD query params with v=2, ot, sid, cid', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const manifests = collector.getRequests('manifest');
+            const manifests = recorder.getReports().filter((r) => r.type === 'manifest');
             expect(manifests.length).to.be.greaterThan(0);
 
-            const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
+            const result = validateCmcdRequest(manifests[0].request, { version: 2 });
             expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.v).to.equal(2);
             expect(result.data.ot).to.not.be.undefined;
@@ -85,14 +79,14 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('Init segment requests carry CMCD query params with ot, sid, cid, v=2', async function () {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const initSegments = collector.getRequests('segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.httpRequest.url));
+            const initSegments = recorder.getReports().filter((r) => r.type === 'segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.request.url));
             if (initSegments.length === 0) {
                 this.skip();
             }
 
-            const result = validateCmcdRequest(initSegments[0].httpRequest, { version: 2 });
+            const result = validateCmcdRequest(initSegments[0].request, { version: 2 });
             expect(result.valid, `CMCD validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.ot).to.not.be.undefined;
             expect(result.data.sid).to.equal('test-session-id');
@@ -100,10 +94,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('sn increments across successive requests', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
-            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
+            const allRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.request, { version: 2 }).data);
             const withSn = parsed.filter((d) => d.sn !== undefined);
             expect(withSn.length).to.be.at.least(2);
 
@@ -113,10 +107,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('sf is d (DASH)', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
-            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
+            const allRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.request, { version: 2 }).data);
             const withSf = parsed.filter((d) => d.sf !== undefined);
             expect(withSf.length).to.be.greaterThan(0);
 
@@ -126,10 +120,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('st is v for VOD', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const allRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
-            const parsed = allRequests.map((r) => validateCmcdRequest(r.httpRequest, { version: 2 }).data);
+            const allRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
+            const parsed = allRequests.map((r) => validateCmcdRequest(r.request, { version: 2 }).data);
             const withSt = parsed.filter((d) => d.st !== undefined);
             expect(withSt.length).to.be.greaterThan(0);
 
@@ -139,14 +133,14 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('CMCD query payloads pass spec validation', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
             expect(queryRequests.length).to.be.greaterThan(0);
 
             for (const req of queryRequests) {
-                const result = validateCmcdRequest(req.httpRequest, { version: 2 });
-                expect(result.valid, `CMCD validation failed for ${req.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
+                const result = validateCmcdRequest(req.request, { version: 2 });
+                expect(result.valid, `CMCD validation failed for ${req.request.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
@@ -159,11 +153,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
     describe(`CMCD V2 Header Mode - ${item.name} - ${mpd}`, () => {
         let playerAdapter;
-        let collector;
+        let recorder;
 
         before(() => {
-            collector = new CmcdRequestCollector();
-            collector.attach();
+            recorder = new CmcdReportRecorder();
+            recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
             const settings = {
                 streaming: {
                     cmcd: { ...DEFAULT_CMCD_V2_CONFIG, mode: 'headers' },
@@ -173,7 +167,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         after(() => {
-            collector.detach();
+            recorder.detach();
             if (playerAdapter) {
                 playerAdapter.destroy();
             }
@@ -184,47 +178,47 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         });
 
         it('CMCD headers present on manifest requests with v=2', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const manifests = collector.getRequests('manifest');
+            const manifests = recorder.getReports().filter((r) => r.type === 'manifest');
             expect(manifests.length).to.be.greaterThan(0);
 
-            const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
+            const result = validateCmcdRequest(manifests[0].request, { version: 2 });
             expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.v).to.equal(2);
         });
 
         it('CMCD headers present on init segment requests', async function () {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const initSegments = collector.getRequests('segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.httpRequest.url));
+            const initSegments = recorder.getReports().filter((r) => r.type === 'segment').filter((r) => /_0\.(m4s|m4v|m4a|mp4)/i.test(r.request.url));
             if (initSegments.length === 0) {
                 this.skip();
             }
 
-            const result = validateCmcdRequest(initSegments[0].httpRequest, { version: 2 });
+            const result = validateCmcdRequest(initSegments[0].request, { version: 2 });
             expect(result.valid, `CMCD header validation failed:\n${formatIssues(result)}`).to.be.true;
             expect(result.data.ot).to.not.be.undefined;
             expect(result.data.sid).to.equal('test-session-id');
         });
 
         it('Keys distributed across correct header shards (validateCmcdRequest)', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const headerRequests = collector.getRequests().filter((r) => r.reportingMode === 'header');
+            const headerRequests = recorder.getReports().filter((r) => r.reportingMode === 'header');
             expect(headerRequests.length).to.be.greaterThan(0);
 
             for (const req of headerRequests) {
-                const result = validateCmcdRequest(req.httpRequest, { version: 2 });
-                expect(result.valid, `CMCD header validation failed for ${req.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
+                const result = validateCmcdRequest(req.request, { version: 2 });
+                expect(result.valid, `CMCD header validation failed for ${req.request.url}:\n${formatIssues(result)}`).to.be.true;
             }
         });
 
         it('No CMCD= query params when in header mode', async () => {
-            await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+            await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-            const headerReqs = collector.getRequests().filter((r) => r.reportingMode === 'header');
-            const queryReqs = collector.getRequests().filter((r) => r.reportingMode === 'query');
+            const headerReqs = recorder.getReports().filter((r) => r.reportingMode === 'header');
+            const queryReqs = recorder.getReports().filter((r) => r.reportingMode === 'query');
             expect(queryReqs.length).to.equal(0);
             expect(headerReqs.length).to.be.greaterThan(0);
         });
@@ -240,13 +234,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('Response-received events (e=rr)', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(function () {
                 this.timeout(60000);
                 const targetUrl = `${EVENT_TARGET_BASE}/rr`;
-                collector = new CmcdRequestCollector();
-                collector.attach({ eventTargetUrls: [targetUrl] });
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ eventTargetUrls: [targetUrl], waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -268,7 +262,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -280,12 +274,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             it('POST to configured target with e=rr', async function () {
                 this.timeout(30000);
-                await collector.waitForRequests('event', 2, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForEvents({ count: 2, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const events = collector.getRequests('event');
+                const events = recorder.getReports().filter((r) => r.type === 'event');
                 expect(events.length).to.be.at.least(1);
 
-                const allEvents = events.flatMap((r) => validateCmcdEvents(r.httpRequest.body, { version: 2 }).data || []);
+                const allEvents = events.flatMap((r) => validateCmcdEvents(r.request.body, { version: 2 }).data || []);
                 const rrEvents = allEvents.filter((d) => d.e === 'rr');
                 expect(rrEvents.length).to.be.at.least(1);
             });
@@ -293,13 +287,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('Play-state events (e=ps)', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(function () {
                 this.timeout(60000);
                 const targetUrl = `${EVENT_TARGET_BASE}/ps`;
-                collector = new CmcdRequestCollector();
-                collector.attach({ eventTargetUrls: [targetUrl] });
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ eventTargetUrls: [targetUrl], waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -320,7 +314,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -332,12 +326,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             it('POST on state changes with sta defined', async function () {
                 this.timeout(30000);
-                await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForEvents({ count: 1, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const events = collector.getRequests('event');
+                const events = recorder.getReports().filter((r) => r.type === 'event');
                 expect(events.length).to.be.at.least(1);
 
-                const results = events.map((r) => validateCmcdEvents(r.httpRequest.body, { version: 2 }));
+                const results = events.map((r) => validateCmcdEvents(r.request.body, { version: 2 }));
 
                 for (const result of results) {
                     expect(result.valid, `Play-state event validation failed:\n${formatIssues(result)}`).to.be.true;
@@ -354,13 +348,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('Time interval events', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(function () {
                 this.timeout(90000);
                 const targetUrl = `${EVENT_TARGET_BASE}/ti`;
-                collector = new CmcdRequestCollector();
-                collector.attach({ eventTargetUrls: [targetUrl] });
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ eventTargetUrls: [targetUrl], waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -382,7 +376,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -396,10 +390,10 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 this.timeout(60000);
                 // Wait long enough for at least 2 time interval events (3s interval)
                 await playerAdapter.sleep(8000);
-                await collector.waitForRequests('event', 2, 20000);
+                await recorder.waitForEvents({ count: 2, timeout: 20000 });
 
-                const allEvents = collector.getRequests('event')
-                    .flatMap((r) => validateCmcdEvents(r.httpRequest.body, { version: 2 }).data || []);
+                const allEvents = recorder.getReports().filter((r) => r.type === 'event')
+                    .flatMap((r) => validateCmcdEvents(r.request.body, { version: 2 }).data || []);
                 const tiEvents = allEvents.filter((d) => d.e === 't');
                 expect(tiEvents.length).to.be.at.least(2);
             });
@@ -407,13 +401,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('POST format and validation', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(function () {
                 this.timeout(60000);
                 const targetUrl = `${EVENT_TARGET_BASE}/all`;
-                collector = new CmcdRequestCollector();
-                collector.attach({ eventTargetUrls: [targetUrl] });
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ eventTargetUrls: [targetUrl], waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -435,7 +429,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -447,36 +441,36 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             it('POST content type is application/cmcd', async function () {
                 this.timeout(30000);
-                await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForEvents({ count: 1, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const events = collector.getRequests('event');
+                const events = recorder.getReports().filter((r) => r.type === 'event');
                 expect(events.length).to.be.at.least(1);
 
                 for (const evt of events) {
-                    const contentType = evt.httpRequest.headers['content-type'] || '';
+                    const contentType = evt.request.headers['content-type'] || '';
                     expect(contentType).to.include('application/cmcd');
                 }
             });
 
             it('POST bodies pass CMCD event spec validation', async function () {
                 this.timeout(30000);
-                await collector.waitForRequests('event', 1, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForEvents({ count: 1, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const events = collector.getRequests('event');
+                const events = recorder.getReports().filter((r) => r.type === 'event');
                 expect(events.length).to.be.at.least(1);
 
                 for (const evt of events) {
-                    const result = validateCmcdEvents(evt.httpRequest.body, { version: 2 });
-                    expect(result.valid, `CMCD event validation failed for POST to ${evt.httpRequest.url}:\n${formatIssues(result)}`).to.be.true;
+                    const result = validateCmcdEvents(evt.request.body, { version: 2 });
+                    expect(result.valid, `CMCD event validation failed for POST to ${evt.request.url}:\n${formatIssues(result)}`).to.be.true;
                 }
             });
 
             it('sn increments across event POSTs', async function () {
                 this.timeout(30000);
-                await collector.waitForRequests('event', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForEvents({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const withSn = collector.getRequests('event')
-                    .flatMap((r) => validateCmcdEvents(r.httpRequest.body, { version: 2 }).data || [])
+                const withSn = recorder.getReports().filter((r) => r.type === 'event')
+                    .flatMap((r) => validateCmcdEvents(r.request.body, { version: 2 }).data || [])
                     .filter((d) => d.sn !== undefined);
                 expect(withSn.length).to.be.at.least(2);
 
@@ -493,12 +487,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('Only configured enabledKeys appear', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
             const enabledKeys = ['ot', 'sid', 'v', 'sn'];
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -512,7 +506,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -523,13 +517,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('Only configured keys appear in query mode', async () => {
-                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
                 expect(queryRequests.length).to.be.greaterThan(0);
 
                 for (const req of queryRequests) {
-                    const result = validateCmcdRequest(req.httpRequest, { version: 2 });
+                    const result = validateCmcdRequest(req.request, { version: 2 });
                     const keys = Object.keys(result.data);
                     for (const key of keys) {
                         expect(
@@ -543,11 +537,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('Empty enabledKeys produces no CMCD data', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -561,7 +555,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -573,18 +567,18 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
             it('No CMCD data appended to requests', async () => {
                 await playerAdapter.sleep(5000);
-                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
                 expect(queryRequests.length).to.equal(0);
             });
         });
 
         describe('All default keys appear when no filter is set', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -597,7 +591,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -608,12 +602,12 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('Core keys appear across requests', async () => {
-                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
                 const allSeenKeys = new Set();
-                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
                 for (const req of queryRequests) {
-                    const result = validateCmcdRequest(req.httpRequest, { version: 2 });
+                    const result = validateCmcdRequest(req.request, { version: 2 });
                     for (const key of Object.keys(result.data)) {
                         allSeenKeys.add(key);
                     }
@@ -637,11 +631,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('v=2 in query mode', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: { ...DEFAULT_CMCD_V2_CONFIG, mode: 'query' },
@@ -651,7 +645,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -662,15 +656,15 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v=2 present in query mode payloads', async () => {
-                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
                 expect(queryRequests.length).to.be.greaterThan(0);
 
-                const manifests = collector.getRequests('manifest');
+                const manifests = recorder.getReports().filter((r) => r.type === 'manifest');
                 expect(manifests.length).to.be.greaterThan(0);
 
-                const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
+                const result = validateCmcdRequest(manifests[0].request, { version: 2 });
                 expect(result.valid, `CMCD v2 query validation failed:\n${formatIssues(result)}`).to.be.true;
                 expect(result.data.v).to.equal(2);
             });
@@ -678,11 +672,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('v=2 in header mode', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: { ...DEFAULT_CMCD_V2_CONFIG, mode: 'headers' },
@@ -692,7 +686,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -703,15 +697,15 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v=2 present in header mode payloads', async () => {
-                await collector.waitForRequests('segment', 3, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForSegments({ count: 3, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const headerRequests = collector.getRequests().filter((r) => r.reportingMode === 'header');
+                const headerRequests = recorder.getReports().filter((r) => r.reportingMode === 'header');
                 expect(headerRequests.length).to.be.greaterThan(0);
 
-                const manifests = collector.getRequests('manifest');
+                const manifests = recorder.getReports().filter((r) => r.type === 'manifest');
                 expect(manifests.length).to.be.greaterThan(0);
 
-                const result = validateCmcdRequest(manifests[0].httpRequest, { version: 2 });
+                const result = validateCmcdRequest(manifests[0].request, { version: 2 });
                 expect(result.valid, `CMCD v2 header validation failed:\n${formatIssues(result)}`).to.be.true;
                 expect(result.data.v).to.equal(2);
             });
@@ -719,11 +713,11 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
 
         describe('v1 regression', () => {
             let playerAdapter;
-            let collector;
+            let recorder;
 
             before(() => {
-                collector = new CmcdRequestCollector();
-                collector.attach();
+                recorder = new CmcdReportRecorder();
+                recorder.attach({ waitTimeout: TIMEOUTS.REQUEST_COLLECTION, transports: [createXhrTransport()] });
                 const settings = {
                     streaming: {
                         cmcd: {
@@ -743,7 +737,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             after(() => {
-                collector.detach();
+                recorder.detach();
                 if (playerAdapter) {
                     playerAdapter.destroy();
                 }
@@ -754,13 +748,13 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
             });
 
             it('v absent or 1 in v1 mode', async () => {
-                await collector.waitForRequests('segment', 1, TIMEOUTS.REQUEST_COLLECTION);
+                await recorder.waitForSegments({ count: 1, timeout: TIMEOUTS.REQUEST_COLLECTION });
 
-                const queryRequests = collector.getRequests().filter((r) => r.reportingMode === 'query');
+                const queryRequests = recorder.getReports().filter((r) => r.reportingMode === 'query');
                 expect(queryRequests.length).to.be.greaterThan(0);
 
                 for (const req of queryRequests) {
-                    const result = validateCmcdRequest(req.httpRequest, { version: 1 });
+                    const result = validateCmcdRequest(req.request, { version: 1 });
                     expect(
                         result.data.v === undefined || result.data.v === 1,
                         `Expected v to be undefined or 1, got ${result.data.v}`

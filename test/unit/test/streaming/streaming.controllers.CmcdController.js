@@ -163,7 +163,7 @@ describe('CmcdController', function () {
                         eventTargets: [{
                             url: 'https://cmcd.event.collector/api',
                             enabled: true,
-                            enabledKeys: ['e'],
+                            enabledKeys: ['e', 'ec'],
                             events: ['e'],
                             interval: 0
                         }]
@@ -193,6 +193,7 @@ describe('CmcdController', function () {
 
             const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
             expect(metrics).to.have.property('e', 'e');
+            expect(metrics.ec).to.deep.equal(['123']);
         });
 
         it('should not send a report when the ERROR event is triggered by a CMCD_EVENT', () => {
@@ -203,7 +204,7 @@ describe('CmcdController', function () {
                         eventTargets: [{
                             url: 'https://cmcd.event.collector/api',
                             enabled: true,
-                            enabledKeys: ['e'],
+                            enabledKeys: ['e', 'ec'],
                             events: ['e'],
                             interval: 0
                         }]
@@ -474,6 +475,84 @@ describe('CmcdController', function () {
             const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
             expect(metrics).to.have.property('e', 'ps');
             expect(metrics).to.have.property('sta', 'e');
+        });
+    });
+
+    describe('Event Mode playback rate events', () => {
+        let urlLoaderMock;
+
+        beforeEach(() => {
+            urlLoaderMock = {
+                load: sinon.spy()
+            };
+            cmcdController.reset();
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'pr', 'ts'],
+                            events: ['pr'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.setConfig({
+                abrController: abrControllerMock,
+                dashMetrics: dashMetricsMock,
+                playbackController: playbackControllerMock,
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock,
+                urlLoader: urlLoaderMock
+            });
+            cmcdController.initialize();
+        });
+
+        it('should send e=pr with pr value when playback rate changes', function () {
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 2.4 });
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'pr');
+            expect(metrics).to.have.property('pr', 2.4);
+        });
+
+        it('should not send pr event when pr is not in target events', function () {
+            cmcdController.reset();
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'pr'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.setConfig({
+                abrController: abrControllerMock,
+                dashMetrics: dashMetricsMock,
+                playbackController: playbackControllerMock,
+                throughputController: throughputControllerMock,
+                serviceDescriptionController: serviceDescriptionControllerMock,
+                urlLoader: urlLoaderMock
+            });
+            cmcdController.initialize();
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 2.4 });
+            expect(urlLoaderMock.load.called).to.be.false;
+        });
+
+        it('should dedupe pr event when playback rate unchanged', function () {
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 1 });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_RATE_CHANGED, { playbackRate: 1 });
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
         });
     });
 

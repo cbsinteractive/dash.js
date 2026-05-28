@@ -165,12 +165,35 @@ function CmcdController() {
         });
     }
 
-    function _onPlaybackStateChange(state) {
-        // Update CmcdReporter with the new player state
-        if (cmcdReporter) {
-            cmcdReporter.update({ sta: state });
+    function _partialHasStateField(partial) {
+        const stateFields = ['sta', 'pr', 'cid', 'bg', 'br'];
+        return stateFields.some((field) => field in partial);
+    }
+
+    function _updateCmcdReporter(partial = {}) {
+        if (!cmcdReporter) {
+            return;
         }
-        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
+
+        _rebuildReporterIfNeeded();
+
+        const msdData = cmcdModel.calculateMsd();
+        const metrics = _partialHasStateField(partial)
+            ? cmcdModel.getEventModeData()
+            : cmcdModel.getContinuousCmcdData();
+        const payload = {
+            ...metrics,
+            ...partial,
+        };
+        if (msdData.msd !== undefined) {
+            payload.msd = msdData.msd;
+        }
+
+        cmcdReporter.update(payload);
+    }
+
+    function _onPlaybackStateChange(state) {
+        _updateCmcdReporter({ sta: state });
     }
 
     function _createCmcdReporter() {
@@ -250,15 +273,12 @@ function CmcdController() {
         if (errorData.error?.data?.request?.type === HTTPRequest.CMCD_EVENT) {
             return;
         }
-        // Update CmcdReporter with the error code
-        if (cmcdReporter) {
-            const errorCode = errorData.error?.code || errorData.error?.data?.code;
-            if (errorCode) {
-                cmcdReporter.update({ ec: errorCode });
-            }
+        const errorCode = errorData.error?.code || errorData.error?.data?.code;
+        const eventData = cmcdModel.getEventModeData();
+        if (errorCode !== undefined) {
+            eventData.ec = Array.isArray(errorCode) ? errorCode : [String(errorCode)];
         }
-
-        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.ERROR);
+        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.ERROR, eventData);
     }
 
     function _rebuildReporterIfNeeded() {
@@ -289,23 +309,23 @@ function CmcdController() {
      * The handler that is triggered for CMCD event mode events (e.g., play, pause, error). Note that response recevived (rr) events are handled by getCmcdResponseReceivedInterceptors.
      * @param event
      */
-    function triggerCmcdEventMode(event) {
+    function triggerCmcdEventMode(event, eventData) {
         if (!cmcdReporter) {
             return;
         }
 
         _rebuildReporterIfNeeded();
 
-        const cmcdData = cmcdModel.getEventModeData();
-
-        // Route media start delay (MSD) through update() for the reporter's internal send-once tracking
         const msdData = cmcdModel.calculateMsd();
         if (msdData.msd !== undefined) {
             cmcdReporter.update(msdData);
         }
 
-        // Pass event-mode data as transient per-event data (not persisted)
-        cmcdReporter.recordEvent(event, cmcdData);
+        const data = eventData !== undefined
+            ? eventData
+            : cmcdModel.getEventModeData();
+
+        cmcdReporter.recordEvent(event, data);
     }
 
     /**
@@ -324,13 +344,9 @@ function CmcdController() {
         _rebuildReporterIfNeeded();
 
         try {
-            const cmcdData = cmcdModel.deriveCmcdDataForRequest(request);
+            _updateCmcdReporter();
 
-            // Route MSD through update() for the reporter's internal send-once tracking
-            const msdData = cmcdModel.calculateMsd();
-            if (msdData.msd !== undefined) {
-                cmcdReporter.update(msdData);
-            }
+            const cmcdData = cmcdModel.deriveCmcdDataForRequest(request);
 
             const decorated = cmcdReporter.createRequestReport(request, cmcdData);
             request.url = decorated.url;
@@ -457,9 +473,10 @@ function CmcdController() {
 
     function _onPlaybackRateChanged(data) {
         const prData = cmcdModel.onPlaybackRateChanged(data);
-        if (cmcdReporter && prData) {
-            cmcdReporter.update(prData);
+        if (!prData) {
+            return;
         }
+        _updateCmcdReporter(prData);
     }
 
     function _onManifestLoaded(data) {
