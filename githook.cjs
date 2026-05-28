@@ -26,26 +26,7 @@ const callerTemplate = `#!/bin/sh
 
 node .git/hooks/pre-commit.cjs;`
 
-function resolveGitHooksDir() {
-    const gitPath = path.join(`${__dirname}`, '.git');
-    try {
-        const stat = fs.statSync(gitPath);
-        if (stat.isDirectory()) {
-            return path.join(gitPath, 'hooks');
-        }
-        // .git is a file (worktree); read its contents to find the real git dir.
-        const gitContent = fs.readFileSync(gitPath, 'utf8').trim();
-        const match = gitContent.match(/^gitdir: (.+)$/m);
-        if (match) {
-            return path.join(match[1], 'hooks');
-        }
-    } catch (e) {
-        // Fall through to the non-worktree default.
-    }
-    return path.join(`${__dirname}`, '.git', 'hooks');
-}
-
-const pathToHooksFolder = resolveGitHooksDir();
+const pathToHooksFolder = path.join(`${__dirname}`, '.git', 'hooks');
 
 function writeHook(name, content) {
     const precommitFile = path.join(pathToHooksFolder, name);
