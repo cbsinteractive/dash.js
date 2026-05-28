@@ -282,15 +282,13 @@ function CmcdController() {
         if (errorData.error?.data?.request?.type === HTTPRequest.CMCD_EVENT) {
             return;
         }
-        // Update CmcdReporter with the error code
-        if (cmcdReporter) {
-            const errorCode = errorData.error?.code || errorData.error?.data?.code;
-            if (errorCode) {
-                cmcdReporter.update({ ec: errorCode });
-            }
-        }
 
-        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.ERROR);
+        const code = errorData.error?.code || errorData.error?.data?.code;
+        const transientData = code !== undefined && code !== null
+            ? { ec: [String(code)] }
+            : {};
+
+        _recordNonStateEvent(Constants.CMCD_REPORTING_EVENTS.ERROR, transientData);
     }
 
     function _rebuildReporterIfNeeded() {
@@ -318,26 +316,28 @@ function CmcdController() {
     }
 
     /**
-     * The handler that is triggered for CMCD event mode events (e.g., play, pause, error). Note that response recevived (rr) events are handled by getCmcdResponseReceivedInterceptors.
-     * @param event
+     * Records a non-state-change event (e.g., ERROR, custom). Continuous
+     * metrics are persisted into the reporter's data store via update();
+     * only ephemeral per-event payload (e.g., ec for ERROR) is passed
+     * through recordEvent()'s data argument.
+     *
+     * State-change events (ps, pr, c, b, bc) auto-fire from update() and
+     * MUST NOT be routed through this helper — a follow-up recordEvent()
+     * for the same event token is dedup-suppressed under
+     * @svta/cml-cmcd >= 2.4.0.
+     *
+     * @param event - Event token (e.g., Constants.CMCD_REPORTING_EVENTS.ERROR)
+     * @param transientData - Per-event payload that should NOT persist into
+     *                        the reporter's data store.
      */
-    function triggerCmcdEventMode(event) {
+    function _recordNonStateEvent(event, transientData = {}) {
         if (!cmcdReporter) {
             return;
         }
-
         _rebuildReporterIfNeeded();
 
-        const cmcdData = cmcdModel.getEventModeData();
-
-        // Route media start delay (MSD) through update() for the reporter's internal send-once tracking
-        const msdData = cmcdModel.calculateMsd();
-        if (msdData.msd !== undefined) {
-            cmcdReporter.update(msdData);
-        }
-
-        // Pass event-mode data as transient per-event data (not persisted)
-        cmcdReporter.recordEvent(event, cmcdData);
+        cmcdReporter.update(_gatherContinuousMetrics());
+        cmcdReporter.recordEvent(event, transientData);
     }
 
     /**

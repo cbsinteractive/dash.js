@@ -485,6 +485,37 @@ describe('CmcdController', function () {
             expect(metrics).to.have.property('ltc', 15000); // PlaybackControllerMock returns 15 (seconds)
             expect(metrics).to.have.property('pt', 7500);
         });
+
+        it('should emit ERROR event with ec as a string array', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'ec'],
+                            events: ['e'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            eventBus.trigger(MediaPlayerEvents.ERROR, {
+                error: {
+                    code: 'PLAYER-FATAL-42',
+                    data: { request: { type: 'someOtherRequestType' } }
+                }
+            });
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'e');
+            expect(metrics).to.have.property('ec').that.deep.equals(['PLAYER-FATAL-42']);
+        });
     });
 
     describe('Event Mode player state events', () => {
