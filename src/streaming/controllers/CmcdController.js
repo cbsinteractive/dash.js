@@ -579,16 +579,14 @@ function CmcdController() {
 
         _rebuildReporterIfNeeded();
 
-        // Collect event-mode data from the model
-        const eventData = cmcdModel.getEventModeData();
+        // Persist continuous metrics into the reporter's data store via update().
+        // recordResponseReceived() will derive per-response fields and merge with
+        // whatever's in the store, so only ephemeral CMSD-derived data needs to
+        // ride the data argument.
+        cmcdReporter.update(_gatherContinuousMetrics());
 
-        // Route MSD through update() for the reporter's internal send-once tracking
-        const msdData = cmcdModel.calculateMsd();
-        if (msdData.msd !== undefined) {
-            cmcdReporter.update(msdData);
-        }
-
-        // Collect dash.js-specific additional data
+        // Collect dash.js-specific additional data (CMSD headers are ephemeral
+        // to this response and must not leak into the persistent store).
         const additionalData = {};
 
         if (response.headers) {
@@ -608,7 +606,7 @@ function CmcdController() {
         }
 
         try {
-            cmcdReporter.recordResponseReceived(response, { ...eventData, ...additionalData });
+            cmcdReporter.recordResponseReceived(response, additionalData);
         } catch (e) {
             logger.error(e);
         }
