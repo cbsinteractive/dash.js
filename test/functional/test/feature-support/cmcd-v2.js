@@ -7,8 +7,13 @@ import {
     initializeDashJsAdapter,
 } from '../common/common.js';
 import { expect } from 'chai';
-import { CmcdReportRecorder, CmcdRecordedRequestType, CmcdRecordedReportMode } from '@svta/cml-cmcd';
-import { validateCmcdRequest, validateCmcdEvents } from '@svta/cml-cmcd';
+import {
+    CmcdRecordedReportMode,
+    CmcdRecordedRequestType,
+    CmcdReportRecorder,
+    validateCmcdEvents,
+    validateCmcdRequest,
+} from '@svta/cml-cmcd';
 
 const TESTCASE = Constants.TESTCASES.FEATURE_SUPPORT.CMCD_V2;
 
