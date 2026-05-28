@@ -58,12 +58,14 @@ function CmcdController() {
         logger,
         mediaPlayerModel,
         reporterNeedsRebuild,
-        urlLoader;
+        urlLoader,
+        _lastPtUpdateAt;
 
 
     let context = this.context;
     let eventBus = EventBus(context).getInstance();
     let debug = Debug(context).getInstance();
+    const PT_UPDATE_THROTTLE_MS = 250;
     const playbackStateMap = {
         [MediaPlayerEvents.PLAYBACK_INITIALIZED]: Constants.CMCD_PLAYER_STATES.STARTING,
         [MediaPlayerEvents.PLAYBACK_PAUSED]: Constants.CMCD_PLAYER_STATES.PAUSED,
@@ -134,6 +136,7 @@ function CmcdController() {
 
     function _resetInitialSettings() {
         reporterNeedsRebuild = false;
+        _lastPtUpdateAt = 0;
     }
 
     function _initializeEventBus(autoPlay) {
@@ -142,6 +145,7 @@ function CmcdController() {
         eventBus.on(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.on(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.on(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.on(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
 
         if (autoPlay) {
             eventBus.on(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
@@ -171,6 +175,21 @@ function CmcdController() {
             cmcdReporter.update({ sta: state });
         }
         triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
+    }
+
+    function _onPlaybackTimeUpdated(e) {
+        if (!cmcdReporter) {
+            return;
+        }
+        if (typeof e?.time !== 'number' || !isFinite(e.time) || e.time < 0) {
+            return;
+        }
+        const now = Date.now();
+        if (now - _lastPtUpdateAt < PT_UPDATE_THROTTLE_MS) {
+            return;
+        }
+        _lastPtUpdateAt = now;
+        cmcdReporter.update({ pt: Math.round(e.time * 1000) });
     }
 
     function _createCmcdReporter() {
@@ -596,6 +615,7 @@ function CmcdController() {
         eventBus.off(MediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED, _onBufferLevelStateChanged, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_SEEKED, _onPlaybackSeeked, instance);
         eventBus.off(MediaPlayerEvents.PERIOD_SWITCH_COMPLETED, _onPeriodSwitchComplete, instance);
+        eventBus.off(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, _onPlaybackTimeUpdated, instance);
         eventBus.off(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, instance);
         eventBus.off(MediaPlayerEvents.MANIFEST_LOADING_STARTED, _onPlaybackStarted, instance);
         eventBus.off(MediaPlayerEvents.ERROR, _onPlayerError, instance);
