@@ -320,7 +320,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                                 {
                                     enabled: true,
                                     url: targetUrl,
-                                    enabledKeys: ['e', 'sta', 'msd', 'ts', 'sn'],
+                                    enabledKeys: ['e', 'sta', 'msd', 'ts', 'sn', 'pt'],
                                     events: ['ps'],
                                 },
                             ],
@@ -360,6 +360,31 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 for (const d of psEvents) {
                     expect(d.sta).to.not.be.undefined;
                 }
+            });
+
+            it('PLAY_STATE event reports carry enrichment fields (pt, ltc, bl, mtp)', async function () {
+                this.timeout(30000);
+                await recorder.waitForEvents({ count: 1 });
+
+                const events = recorder.getReports().filter((r) => r.type === CmcdRecordedRequestType.EVENT);
+                expect(events.length).to.be.greaterThan(0);
+
+                const psEvents = events
+                    .flatMap((r) => validateCmcdEvents(r.request.body, { version: 2 }).data || [])
+                    .filter((d) => d.e === 'ps');
+
+                expect(psEvents.length, 'expected at least one PLAY_STATE event report').to.be.greaterThan(0);
+
+                const sample = psEvents[0];
+                expect(sample, 'PLAY_STATE report should carry sta').to.have.property('sta');
+
+                // At least one of the continuous enrichment fields should be present.
+                // (Which ones depend on enabledKeys and stream-format; we assert that
+                // the enrichment plumbing is alive end-to-end.)
+                const enrichmentKeys = ['pt', 'ltc', 'bl', 'mtp'];
+                const present = enrichmentKeys.filter((k) => sample[k] !== undefined);
+                expect(present.length, `expected >=1 enrichment field in {${enrichmentKeys.join(',')}}; got: ${JSON.stringify(sample)}`)
+                    .to.be.greaterThan(0);
             });
         });
 
