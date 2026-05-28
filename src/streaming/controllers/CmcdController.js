@@ -201,6 +201,10 @@ function CmcdController() {
         if (now - _lastPtUpdateAt < PT_UPDATE_THROTTLE_MS) {
             return;
         }
+        // Honor any pending reporter rebuild before writing, otherwise pt
+        // lands on a reporter that's about to be discarded by the next
+        // state-change or response-received rebuild.
+        _rebuildReporterIfNeeded();
         _lastPtUpdateAt = now;
         cmcdReporter.update({ pt: Math.round(e.time * 1000) });
     }
