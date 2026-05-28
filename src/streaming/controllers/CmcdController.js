@@ -298,7 +298,7 @@ function CmcdController() {
 
         // Only rebuild if manifest params are available and enabled.
         // Without manifest params, the reporter config hasn't changed
-        // and rebuilding would unnecessarily reset sid and sn.
+        // and rebuilding would unnecessarily reset sid.
         // IMPORTANT: Don't reset reporterNeedsRebuild until we actually rebuild,
         // otherwise a race condition can occur where params aren't available yet
         // and we never get another chance to rebuild.
