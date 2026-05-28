@@ -320,7 +320,7 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                                 {
                                     enabled: true,
                                     url: targetUrl,
-                                    enabledKeys: ['e', 'sta', 'msd', 'ts', 'sn', 'pt'],
+                                    enabledKeys: ['e', 'sta', 'msd', 'ts', 'sn', 'pt', 'bl', 'mtp'],
                                     events: ['ps'],
                                 },
                             ],
@@ -378,13 +378,17 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
                 const sample = psEvents[0];
                 expect(sample, 'PLAY_STATE report should carry sta').to.have.property('sta');
 
-                // At least one of the continuous enrichment fields should be present.
-                // (Which ones depend on enabledKeys and stream-format; we assert that
-                // the enrichment plumbing is alive end-to-end.)
-                const enrichmentKeys = ['pt', 'ltc', 'bl', 'mtp'];
+                // Multiple continuous enrichment fields should be present in real
+                // playback — pt (from the PLAYBACK_TIME_UPDATED listener), bl
+                // (buffer level), and mtp (measured throughput) all flow through
+                // the consolidated update() call. ltc is omitted from the assertion
+                // because PlaybackController.getCurrentLiveLatency() returns NaN
+                // on VOD streams. Requiring >=2 distinct enrichment fields ensures
+                // the test catches a regression that drops most of the payload.
+                const enrichmentKeys = ['pt', 'bl', 'mtp'];
                 const present = enrichmentKeys.filter((k) => sample[k] !== undefined);
-                expect(present.length, `expected >=1 enrichment field in {${enrichmentKeys.join(',')}}; got: ${JSON.stringify(sample)}`)
-                    .to.be.greaterThan(0);
+                expect(present.length, `expected >=2 enrichment fields in {${enrichmentKeys.join(',')}}; got: ${JSON.stringify(sample)}`)
+                    .to.be.at.least(2);
             });
         });
 
