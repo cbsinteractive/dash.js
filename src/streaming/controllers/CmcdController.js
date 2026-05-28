@@ -169,12 +169,25 @@ function CmcdController() {
         });
     }
 
+    function _gatherContinuousMetrics() {
+        return {
+            ...cmcdModel.getEventModeData(),
+            ...cmcdModel.calculateMsd(),
+        };
+    }
+
     function _onPlaybackStateChange(state) {
-        // Update CmcdReporter with the new player state
-        if (cmcdReporter) {
-            cmcdReporter.update({ sta: state });
+        if (!cmcdReporter) {
+            return;
         }
-        triggerCmcdEventMode(Constants.CMCD_REPORTING_EVENTS.PLAY_STATE);
+        _rebuildReporterIfNeeded();
+
+        // Single consolidated update() call:
+        //   - Persists continuous metrics + sta into the reporter's data store
+        //   - Auto-fires the PLAY_STATE event with the full enriched payload
+        // A separate recordEvent('ps', ...) would be dedup-suppressed under
+        // @svta/cml-cmcd 2.4.0 and silently drop its data argument.
+        cmcdReporter.update({ ..._gatherContinuousMetrics(), sta: state });
     }
 
     function _onPlaybackTimeUpdated(e) {

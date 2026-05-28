@@ -454,6 +454,37 @@ describe('CmcdController', function () {
             // pt should not be in the payload because no valid update happened.
             expect(metrics).to.not.have.property('pt');
         });
+
+        it('should include continuous-metric enrichment (ltc, pt) in the PLAY_STATE event payload', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta', 'ltc', 'pt'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // Prime pt in the reporter's persistent store.
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: 7.5 });
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'ps');
+            expect(metrics).to.have.property('sta', 'p');
+            expect(metrics).to.have.property('ltc', 15000); // PlaybackControllerMock returns 15 (seconds)
+            expect(metrics).to.have.property('pt', 7500);
+        });
     });
 
     describe('Event Mode player state events', () => {
