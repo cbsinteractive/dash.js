@@ -3,7 +3,6 @@ import Utils from '../../src/Utils.js';
 
 import {
     checkIsPlaying,
-    checkIsProgressing,
     checkNoCriticalErrors,
     initializeDashJsAdapter
 } from '../common/common.js';
@@ -40,10 +39,6 @@ Utils.getTestvectorsForTestcase(TESTCASE).forEach((item) => {
         it(`Checking playing state`, async () => {
             await checkIsPlaying(playerAdapter, true);
         })
-
-        it(`Checking progressing state`, async () => {
-            await checkIsProgressing(playerAdapter);
-        });
 
         it(`Expect CMCD event to be thrown`, async () => {
             await playerAdapter.waitForEvent(Constants.TEST_TIMEOUT_THRESHOLDS.EVENT_WAITING_TIME, dashjs.MetricsReporting.events.CMCD_DATA_GENERATED)

@@ -91,11 +91,11 @@
   },
   "dependencies": {
     "@svta/cml-608": "1.0.2",
-    "@svta/cml-cmcd": "2.3.2",
+    "@svta/cml-cmcd": "2.4.0",
     "@svta/cml-cmsd": "1.0.6",
     "@svta/cml-dash": "1.0.6",
     "@svta/cml-id3": "1.0.6",
-    "@svta/cml-request": "1.0.12",
+    "@svta/cml-request": "1.0.13",
     "@svta/cml-xml": "1.1.4",
     "bcp-47-match": "^2.0.3",
     "codem-isoboxer": "0.3.10",
