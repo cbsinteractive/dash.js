@@ -354,6 +354,168 @@ describe('CmcdController', function () {
             const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
             expect(metrics).to.have.property('e', 'ps');
         });
+
+        it('should include pt in the event report after PLAYBACK_TIME_UPDATED fires', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta', 'pt'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // Populate pt in the reporter's persistent store via the listener.
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: 5.5 });
+
+            // Trigger a state change to fire the PLAY_STATE event.
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'ps');
+            expect(metrics).to.have.property('pt', 5500);
+        });
+
+        it('should throttle PLAYBACK_TIME_UPDATED to PT_UPDATE_THROTTLE_MS', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta', 'pt'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // First fire: lands in the store (no throttle yet).
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: 1.0 });
+
+            // Install fake timers AFTER the first update so the reporter is running.
+            // Stub Date.now to simulate only 100ms having passed since the first update.
+            const realNow = Date.now();
+            const stub = sinon.stub(Date, 'now').returns(realNow + 100);
+            try {
+                // Second fire within the throttle window: should be skipped.
+                eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: 99.0 });
+
+                eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+                const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+                const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+                // pt reflects the FIRST fire (1.0s → 1000ms), not the throttled second (99.0s).
+                expect(metrics).to.have.property('pt', 1000);
+            } finally {
+                stub.restore();
+            }
+        });
+
+        it('should ignore PLAYBACK_TIME_UPDATED with invalid time values', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta', 'pt'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // Each of these should be a no-op (no update() call to the reporter).
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: undefined });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: NaN });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: -1 });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, {});
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            // pt should not be in the payload because no valid update happened.
+            expect(metrics).to.not.have.property('pt');
+        });
+
+        it('should include continuous-metric enrichment (ltc, pt) in the PLAY_STATE event payload', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'sta', 'ltc', 'pt'],
+                            events: ['ps'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            // Prime pt in the reporter's persistent store.
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_TIME_UPDATED, { time: 7.5 });
+
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_PLAYING);
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'ps');
+            expect(metrics).to.have.property('sta', 'p');
+            expect(metrics).to.have.property('ltc', 15000); // PlaybackControllerMock returns 15 (seconds)
+            expect(metrics).to.have.property('pt', 7500);
+        });
+
+        it('should emit ERROR event with ec as a string array', () => {
+            settings.update({
+                streaming: {
+                    cmcd: {
+                        version: 2,
+                        eventTargets: [{
+                            url: 'https://cmcd.event.collector/api',
+                            enabled: true,
+                            enabledKeys: ['e', 'ec'],
+                            events: ['e'],
+                            interval: 0
+                        }]
+                    }
+                }
+            });
+            cmcdController.initialize();
+
+            eventBus.trigger(MediaPlayerEvents.ERROR, {
+                error: {
+                    code: 'PLAYER-FATAL-42',
+                    data: { request: { type: 'someOtherRequestType' } }
+                }
+            });
+
+            expect(urlLoaderMock.load.calledOnce).to.be.true;
+            const requestSent = urlLoaderMock.load.firstCall.args[0].request;
+            const metrics = decodeCmcd(decodeURIComponent(requestSent.body));
+            expect(metrics).to.have.property('e', 'e');
+            expect(metrics).to.have.property('ec').that.deep.equals(['PLAYER-FATAL-42']);
+        });
     });
 
     describe('Event Mode player state events', () => {

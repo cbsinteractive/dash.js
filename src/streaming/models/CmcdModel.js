@@ -567,8 +567,15 @@ function CmcdModel() {
             data.ltc = ltc;
         }
 
-        if (typeof document !== 'undefined' && document.hidden) {
-            data.bg = true;
+        // Always report the current backgrounded state so transitions
+        // round-trip through the reporter's persistent store. Sending only
+        // bg:true (and omitting on visible) leaves a stale bg:true in the
+        // store after a hidden->visible transition, which then leaks into
+        // unrelated event-mode payloads. The library handles emission
+        // semantics: bg:false is stripped on non-`e=b` events and emitted
+        // as `?0` on `e=b` per the 2.4.0 carve-out.
+        if (typeof document !== 'undefined') {
+            data.bg = !!document.hidden;
         }
 
         if (mediaType && _shouldIncludeDroppedFrames(mediaType)) {
